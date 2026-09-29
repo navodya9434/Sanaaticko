@@ -636,8 +636,9 @@ $(document).ready(function () {
                         meta: _requestData,
                         callback: function (data) {
                             if (data.status == "successful") {
-                                window.location.href = "/my-tickets";
-                            }
+window.location.href = data.is_guest
+    ? "/show-details/" + data.order_id
+    : "/my-tickets";                            }
                         },
                         onClose: function () {
                             if (confirm("Are you sure you want to go to home page?")) {
@@ -1045,6 +1046,11 @@ $(document).ready(function () {
 
     // Create Order
     function createOrder(requestData) {
+    requestData.usr_first_name = $('input[name="usr_first_name"]').val();
+    requestData.usr_last_name = $('input[name="usr_last_name"]').val();
+    requestData.usr_email = $('input[name="usr_email"]').val();
+    requestData.usr_phone = $('input[name="usr_phone"]').val();
+    requestData.usr_password = $('input[name="usr_password"]').val();
         $.ajax({
             headers: {
                 "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content"),
@@ -1062,8 +1068,9 @@ $(document).ready(function () {
             },
             success: function (data) {
                 if (data.success == true) {
-                    window.location.href = "/my-tickets";
-                } else {
+window.location.href = data.is_guest
+    ? "/show-details/" + data.order_id
+    : "/my-tickets";                } else {
                     $("#stripe_message").text(data.message);
                     $("#stripe_message").show();
                 }
@@ -1153,6 +1160,18 @@ function demoSuccessHandler(transaction) {
         ticket_date: $("#onetime").val(),
         selectedSeats: $("#selectedSeats").val(),
         selectedSeatsId: $("#selectedSeatsId").val(),
+
+usr_first_name: $('input[name="usr_first_name"]').val(),
+usr_last_name: $('input[name="usr_last_name"]').val(),
+usr_email: $('input[name="usr_email"]').val(),
+usr_phone: $('input[name="usr_phone"]').val(),
+usr_password: $('input[name="usr_password"]').val(),
+
+usr_first_name: $('input[name="usr_first_name"]').val(),
+usr_last_name: $('input[name="usr_last_name"]').val(),
+usr_email: $('input[name="usr_email"]').val(),
+usr_phone: $('input[name="usr_phone"]').val(),
+usr_password: $('input[name="usr_password"]').val(),
     };
 
     $.ajax({
@@ -1166,8 +1185,9 @@ function demoSuccessHandler(transaction) {
         success: function (data) {
             if (data.success == true) {
                 $("#stripe_message").text(data.message);
-                window.location.href = "/my-tickets";
-            } else {
+window.location.href = data.is_guest
+    ? "/show-details/" + data.order_id
+    : "/my-tickets";            } else {
                 $("#stripe_message").text(data.message);
                 $("#stripe_message").show();
             }
@@ -1258,6 +1278,12 @@ function stripeSession() {
             ticket_date: $("#onetime").val(),
             selectedSeats: $("#selectedSeats").val(),
             selectedSeatsId: $("#selectedSeatsId").val(),
+
+usr_first_name: $('input[name="usr_first_name"]').val(),
+usr_last_name: $('input[name="usr_last_name"]').val(),
+usr_email: $('input[name="usr_email"]').val(),
+usr_phone: $('input[name="usr_phone"]').val(),
+usr_password: $('input[name="usr_password"]').val(),
         },
         dataType: "json",
         success: function (session) {
