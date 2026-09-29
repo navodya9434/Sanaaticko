@@ -214,3 +214,6 @@ Route::get('/rave/callback/{id}', [UserController::class, 'callback'])->name('ca
 
 Route::get('FlutterWavepayment/{id}', [UserController::class, 'FlutterWavepayment']);
 Route::get('transction_verify/{id}', [UserController::class, 'transction_verify']);
+
+Route::post('/mpesa/initiate', [App\Http\Controllers\MpesaController::class, 'initiate']);
+Route::post('/mpesa/query', [App\Http\Controllers\MpesaController::class, 'query']);

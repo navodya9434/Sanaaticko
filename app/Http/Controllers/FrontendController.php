@@ -1139,28 +1139,83 @@ class FrontendController extends Controller
         }
     }
 
-    public function createOrder(Request $request)
-    {
-        $data = $request->all();
-        $ticket = Ticket::findOrFail($request->ticket_id);
-        if ($ticket->allday == 0) {
-            $request->validate([
-                'ticket_date' => 'bail|required',
+public function createOrder(Request $request)
+{
+    $data = $request->all();
+
+    $ticket = Ticket::findOrFail($request->ticket_id);
+
+    if ($ticket->allday == 0) {
+        $request->validate([
+            'ticket_date' => 'bail|required',
+        ]);
+    }
+
+    /*
+     * Get the customer.
+     * Logged-in users continue using their existing account.
+     * Guests are created as a local AppUser so the existing
+     * orders/customer relationship continues to work.
+     */
+    if (Auth::guard('appuser')->check()) {
+        $user = Auth::guard('appuser')->user();
+    } else {
+        $request->validate([
+            'usr_first_name' => 'required|string|max:50',
+            'usr_last_name' => 'required|string|max:50',
+            'usr_email' => 'required|email|max:50',
+            'usr_phone' => 'required|string|max:50',
+        ]);
+
+        $user = AppUser::where('email', $request->usr_email)->first();
+
+        if (!$user) {
+            $user = new AppUser();
+$user->name = $request->usr_first_name;
+$user->last_name = $request->usr_last_name;
+$user->email = $request->usr_email;
+$user->phone = $request->usr_phone;
+$user->password = Hash::make(
+    $request->usr_password ?? \Illuminate\Support\Str::random(16)
+);
+$user->image = 'defaultuser.png';
+$user->status = 1;
+$user->provider = 'LOCAL';
+$user->language = Setting::first()->language;
+$user->is_verify = 1;
+$user->save();
+        } else {
+            // Use the existing customer information for the order.
+            $user->update([
+                'name' => $request->usr_first_name,
+                'last_name' => $request->usr_last_name,
+                'phone' => $request->usr_phone,
             ]);
         }
-        if ($request->payment_type == 'WALLET') {
-            $user = Auth::guard('appuser')->user()->id;
-            $user = AppUser::find($user);
-            if ($user->balance >= $request->payment) {
-                $user->withdraw($request->payment, ['event_id' => $request->ticket_id]);
-            } else {
-                return response()->json(['success' => false, 'message' => 'Insufficient balance']);
-            }
-        }
-        $event = Event::find($ticket->event_id);
+    }
 
-        $org = User::find($event->user_id);
-        $user = AppUser::find(Auth::guard('appuser')->user()->id);
+    // Wallet payments require a signed-in account.
+    if ($request->payment_type == 'WALLET') {
+        if (!Auth::guard('appuser')->check()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please sign in to use wallet payment.'
+            ]);
+        }
+
+        if ($user->balance >= $request->payment) {
+            $user->withdraw($request->payment, ['event_id' => $request->ticket_id]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insufficient balance'
+            ]);
+        }
+    }
+
+    $event = Event::find($ticket->event_id);
+
+    $org = User::find($event->user_id);
         $data['order_id'] = '#' . rand(9999, 100000);
         $data['event_id'] = $event->id;
         $data['customer_id'] = $user->id;
@@ -1218,7 +1273,7 @@ class FrontendController extends Controller
             $child['ticket_number'] = uniqid();
             $child['ticket_id'] = $request->ticket_id;
             $child['order_id'] = $order->id;
-            $child['customer_id'] = Auth::guard('appuser')->user()->id;
+            $child['customer_id'] = $user->id;
             $child['checkin'] = $ticket->maximum_checkins ?? null;
             $child['paid'] = $request->payment_type == 'LOCAL' ? 0 : 1 ;
             OrderChild::create($child);
@@ -1313,8 +1368,12 @@ class FrontendController extends Controller
             }
         }
 
-        return response()->json(['success' => true, 'message' => 'Payment successful']);
-    }
+return response()->json([
+    'success' => true,
+    'message' => 'Payment successful',
+    'order_id' => $order->id,
+    'is_guest' => !Auth::guard('appuser')->check(),
+]);    }
     public function sendMail($id)
     {
         $order = Order::with(['customer', 'event', 'organization', 'ticket'])->find($id);

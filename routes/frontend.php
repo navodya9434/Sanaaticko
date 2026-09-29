@@ -72,11 +72,12 @@ Route::group(['middleware' => ['mode', 'XSS']], function () {
 
         Route::any('/signinOrder', [FrontendController::class, 'signinOrder'])->name('signinOrder');
 
-        Route::group(['middleware' => 'appuser'], function () {
+        Route::any('/createOrder', [FrontendController::class, 'createOrder'])->name('createOrderUser');
 
-            Route::get('email/verify/{id}/{token}', [FrontendController::class, 'emailVerify']);
-            Route::post('/applyCoupon', [FrontendController::class, 'applyCoupon']);
-            Route::any('/createOrder', [FrontendController::class, 'createOrder'])->name('createOrderUser');
+Route::group(['middleware' => 'appuser'], function () {
+
+    Route::get('email/verify/{id}/{token}', [FrontendController::class, 'emailVerify']);
+    Route::post('/applyCoupon', [FrontendController::class, 'applyCoupon']);
             Route::get('/user/profile', [FrontendController::class, 'userTickets']);
             Route::get('/add-favorite/{id}/{type}', [FrontendController::class, 'addFavorite']);
             Route::get('/add-followList/{id}', [FrontendController::class, 'addFollow']);
