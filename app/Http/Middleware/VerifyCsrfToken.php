@@ -17,5 +17,7 @@ class VerifyCsrfToken extends Middleware
         'saveAdminData',
         'saveEnvData',
         'user/flutterwave/webhook',
+        'mpesa/callback',
     ];
 }
+
