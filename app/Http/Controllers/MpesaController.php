@@ -26,9 +26,11 @@ class MpesaController extends Controller
             $checkoutRequestId = $result['CheckoutRequestID'] ?? null;
 
             if ($checkoutRequestId) {
-                session([
-                    'mpesa_pending_' . $checkoutRequestId => $request->except('_token'),
-                ]);
+                cache()->put(
+                    'mpesa_pending_' . $checkoutRequestId,
+                    $request->except('_token'),
+                    now()->addMinutes(30)
+                );
             }
 
             return response()->json([
@@ -63,7 +65,7 @@ class MpesaController extends Controller
             $code = (string) ($result['ResultCode'] ?? '');
 
             if ($code === '0') {
-                $pendingData = session('mpesa_pending_' . $checkoutRequestId);
+                $pendingData = cache()->get('mpesa_pending_' . $checkoutRequestId);
 
                 if (!$pendingData) {
                     return response()->json([
@@ -96,7 +98,7 @@ class MpesaController extends Controller
                     $orderResponse->getStatusCode() < 300 &&
                     ($orderData['success'] ?? false)
                 ) {
-                    session()->forget('mpesa_pending_' . $checkoutRequestId);
+                    cache()->forget('mpesa_pending_' . $checkoutRequestId);
 
                     return response()->json([
                         'success' => true,
@@ -119,14 +121,25 @@ class MpesaController extends Controller
                 ], 500);
             }
 
-            if (in_array($code, ['1032', '1037'], true)) {
-                session()->forget('mpesa_pending_' . $checkoutRequestId);
+            if ($code === '1032') {
+                cache()->forget('mpesa_pending_' . $checkoutRequestId);
 
                 return response()->json([
                     'success' => false,
                     'status' => 'failed',
+                    'result_code' => $code,
                     'message' => $result['ResultDesc']
-                        ?? 'M-Pesa payment was not completed.',
+                        ?? 'M-Pesa payment was cancelled.',
+                ]);
+            }
+
+            if ($code === '1037') {
+                return response()->json([
+                    'success' => true,
+                    'status' => 'pending',
+                    'result_code' => $code,
+                    'message' => $result['ResultDesc']
+                        ?? 'Waiting for M-Pesa confirmation.',
                 ]);
             }
 
@@ -147,4 +160,78 @@ class MpesaController extends Controller
             ], 500);
         }
     }
+    public function callback(Request $request)
+    {
+        Log::info('M-Pesa callback received', [
+            'payload' => $request->all(),
+        ]);
+
+        $callback = $request->input('Body.stkCallback', []);
+        $checkoutRequestId = $callback['CheckoutRequestID'] ?? null;
+        $resultCode = (string) ($callback['ResultCode'] ?? '');
+
+        if ($checkoutRequestId && $resultCode === '0') {
+            $pendingData = cache()->get('mpesa_pending_' . $checkoutRequestId);
+
+            if ($pendingData) {
+                $pendingData['payment_type'] = 'MPESA';
+                $pendingData['payment'] = $pendingData['mpesa_amount'] ?? 0;
+                $pendingData['mpesa_payment_status'] = 'paid';
+
+                try {
+                    $orderRequest = Request::create(
+                        '/createOrder',
+                        'POST',
+                        $pendingData
+                    );
+
+                    $orderResponse = app(FrontendController::class)
+                        ->createOrder($orderRequest);
+
+                    $orderData = json_decode(
+                        $orderResponse->getContent(),
+                        true
+                    );
+
+                    if (
+                        $orderResponse->getStatusCode() >= 200 &&
+                        $orderResponse->getStatusCode() < 300 &&
+                        ($orderData['success'] ?? false)
+                    ) {
+                        cache()->put(
+                            'mpesa_result_' . $checkoutRequestId,
+                            [
+                                'success' => true,
+                                'status' => 'paid',
+                                'order_id' => $orderData['order_id'] ?? null,
+                            ],
+                            now()->addMinutes(30)
+                        );
+
+                        cache()->forget(
+                            'mpesa_pending_' . $checkoutRequestId
+                        );
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('M-Pesa callback order error', [
+                        'checkout_request_id' => $checkoutRequestId,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
+        return response()->json([
+            'ResultCode' => 0,
+            'ResultDesc' => 'Accepted',
+        ]);
+    }
+
 }
+
+
+
+
+
+
+
