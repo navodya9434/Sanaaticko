@@ -249,14 +249,16 @@
                               <div class="ticket__timing">
                                   <p>
                                       <span class="u-upper ticket__small-label">Start Date</span>
-                                      <span
-                                          class="ticket__detail">{{ $order->ticket->start_time->format('Y-m-d') }}</span>
+                                      <span class="ticket__detail">
+    {{ $order->ticket->start_time ? $order->ticket->start_time->format('Y-m-d') : 'All Day' }}
+</span>
 
                                   </p>
                                   <p>
                                       <span class="u-upper ticket__small-label">Start Time</span>
-                                      <span
-                                          class="ticket__detail">{{ $order->ticket->start_time->format('H:i:s') }}</span>
+                                      <span class="ticket__detail">
+    {{ $order->ticket->start_time ? $order->ticket->start_time->format('H:i:s') : 'All Day' }}
+</span>
                                   </p>
 
                                   <p>
