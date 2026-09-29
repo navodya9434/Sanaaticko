@@ -131,10 +131,13 @@ class Event extends Model
         }
 
         // ticket whose end date is closing at the last.
-        $ticket = Ticket::where('event_id', $this->id)->orderBy('end_time', 'desc')->first();
-        if($ticket->end_time->diffInDays(now()) <= 3){
-            return "sales ending soon";
-        }
+       $ticket = Ticket::where('event_id', $this->id)
+    ->orderBy('end_time', 'desc')
+    ->first();
+
+if($ticket && $ticket->end_time && $ticket->end_time->diffInDays(now()) <= 3){
+    return "sales ending soon";
+}
         return '';
     }
 }
